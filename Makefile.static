@@ -1,0 +1,105 @@
+TARGET=libgpg-error.a
+
+CFLAGS=-m32 -I. -Isrc -Wall -O3 -fPIC -DHAVE_CONFIG_H
+
+UNAME := $(shell uname)
+
+ifdef AWK_PROG
+  AWK := $(AWK_PROG)
+else
+  AWK := $(shell which awk)
+endif
+
+ifeq ($(UNAME), Darwin)
+  ifeq ($(AWK),)
+    AWK := ../tools/osx/awk
+  endif
+endif
+
+ifeq ($(UNAME), Linux)
+  ifeq ($(AWK),)
+     $(error Please install awk for your distribution)
+  endif
+endif
+
+W32ADD=echo
+ifeq ($(findstring WIN,$(UNAME)), WIN)
+  UNAME:="MINGW"
+endif
+ifeq ($(findstring MINGW,$(UNAME)), MINGW)
+  W32ADD=cat src/w32-add.h
+endif
+
+genheaders= src/gpg-error.h \
+	src/err-sources.h \
+	src/err-codes.h \
+	src/code-to-errno.h \
+	src/code-from-errno.h \
+	src/mkerrcodes.h \
+
+objects= src/init.o \
+	src/strsource.o \
+	src/strerror.o \
+	src/code-to-errno.o \
+	src/code-from-errno.o \
+
+all: $(TARGET)
+
+%.o: %.c
+	$(CC) -o $@ $(CFLAGS) -c $<
+
+src/gpg-error.h: src/mkheader.awk src/err-sources.h.in src/err-codes.h.in src/errnos.in src/extra-h.in src/gpg-error.h.in
+	$(AWK) -f src/mkheader.awk \
+		src/err-sources.h.in \
+		src/err-codes.h.in \
+		src/errnos.in \
+		src/extra-h.in \
+		src/gpg-error.h.in > $@
+
+src/err-sources.h: src/mkstrtable.awk src/err-sources.h.in
+	$(AWK) -f src/mkstrtable.awk -v textidx=3 \
+		src/err-sources.h.in >$@
+
+src/err-sources-sym.h: src/mkstrtable.awk src/err-sources.h.in
+	$(AWK) -f src/mkstrtable.awk -v textidx=2 -v nogettext=1 \
+		src/err-sources.h.in >$@
+
+src/err-codes.h: src/mkstrtable.awk src/err-codes.h.in
+	$(AWK) -f src/mkstrtable.awk -v textidx=3 \
+		src/err-codes.h.in >$@
+
+src/err-codes-sym.h: src/mkstrtable.awk src/err-codes.h.in
+	$(AWK) -f src/mkstrtable.awk -v textidx=2 -v nogettext=1 \
+		src/err-codes.h.in >$@
+
+src/code-to-errno.h: src/mkerrnos.awk src/errnos.in
+	$(AWK) -f src/mkerrnos.awk src/errnos.in >$@
+
+src/mkerrcodes.h: src/mkerrcodes.awk
+	$(AWK) -f src/mkerrcodes1.awk src/errnos.in >_mkerrcodes.h
+	$(CPP) _mkerrcodes.h | grep GPG_ERR_ | \
+               $(AWK) -f src/mkerrcodes.awk >$@
+	-rm _mkerrcodes.h
+
+src/mkerrcodes: src/mkerrcodes.c src/mkerrcodes.h
+	$(CC) -I. -Isrc -o $@ src/mkerrcodes.c
+
+src/code-from-errno.h: src/mkerrcodes
+	./src/mkerrcodes | $(AWK) -f src/mkerrcodes2.awk >$@
+
+src/errnos-sym.h: src/mkstrtable.awk src/errnos.in
+	$(AWK) -f src/mkstrtable.awk -v textidx=2 -v nogettext=1 \
+		-v prefix=GPG_ERR_ -v namespace=errnos_ \
+		src/errnos.in >$@
+
+src/extra-h.in: src/w32-add.h
+	@rm -f src/extra-h.in
+	$(W32ADD) >>src/extra-h.in
+	echo EOF >>src/extra-h.in
+
+$(TARGET): $(genheaders) $(objects)
+	$(AR) rcs $@ $(objects)
+
+clean:
+	rm -f $(objects) $(genheaders)
+	rm -f $(TARGET)
