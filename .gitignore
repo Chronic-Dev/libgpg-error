@@ -5,3 +5,13 @@ configure
 config.h.in
 src/err-codes.h
 src/err-sources.h
+src/*.o
+src/gpg-error.h
+src/err-sources.h
+src/err-codes.h
+src/extra-h.in
+src/code-to-errno.h
+src/code-from-errno.h
+src/mkerrcodes.h
+src/mkerrcodes
+libgpg-error.a
