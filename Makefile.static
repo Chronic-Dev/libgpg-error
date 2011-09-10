@@ -1,6 +1,6 @@
 TARGET=libgpg-error.a
 
-CFLAGS=-m32 -I. -Isrc -Wall -O3 -fPIC -DHAVE_CONFIG_H
+CFLAGS=-m32 -I. -Isrc -Wall -O3 -DHAVE_CONFIG_H
 
 UNAME := $(shell uname)
 
@@ -14,19 +14,32 @@ ifeq ($(UNAME), Darwin)
   ifeq ($(AWK),)
     AWK := ../tools/osx/awk
   endif
+  CFLAGS+=-fPIC -DHAVE_STRERROR_R=1
 endif
 
 ifeq ($(UNAME), Linux)
   ifeq ($(AWK),)
      $(error Please install awk for your distribution)
   endif
+  CFLAGS+=-fPIC -DHAVE_STRERROR_R=1
 endif
 
 W32ADD=echo
-ifeq ($(findstring WIN,$(UNAME)), WIN)
-  UNAME:="MINGW"
+
+WIN32=
+ifeq ($(findstring CYG,$(UNAME)), CYG)
+  WIN32=1
+  CC=gcc-3
 endif
 ifeq ($(findstring MINGW,$(UNAME)), MINGW)
+  WIN32=1
+  CC=gcc
+endif
+ifdef WIN32
+  ifeq ($(AWK),)
+    AWK := ../tools/win32/gawk.exe
+  endif
+  CFLAGS+=-DWIN32 -DHAVE_W32_SYSTEM=1
   W32ADD=cat src/w32-add.h
 endif
 
