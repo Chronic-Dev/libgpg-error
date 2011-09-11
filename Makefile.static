@@ -39,7 +39,7 @@ ifdef WIN32
   ifeq ($(AWK),)
     AWK := ../tools/win32/gawk.exe
   endif
-  CFLAGS+=-DWIN32 -DHAVE_W32_SYSTEM=1
+  CFLAGS+=-DWIN32 -DHAVE_W32_SYSTEM=1 -D_WIN32
   W32ADD=cat src/w32-add.h
 endif
 
@@ -55,6 +55,10 @@ objects= src/init.o \
 	src/strerror.o \
 	src/code-to-errno.o \
 	src/code-from-errno.o \
+
+ifdef WIN32
+  objects+=src/w32-gettext.o
+endif
 
 all: $(TARGET)
 
